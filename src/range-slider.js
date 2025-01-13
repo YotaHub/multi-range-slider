@@ -59,6 +59,7 @@ export default class RangeSlider {
         this.documentMouseMoveHandler = this.documentMouseMoveHandler.bind(
             this
         );
+        this.documentTouchMoveHandler = this.documentTouchMoveHandler.bind(this);
         this.selectedPointIndex = -1;
 
         this.changeHandlers = [];
@@ -130,6 +131,7 @@ export default class RangeSlider {
         rail.style.top = this.allProps.pointRadius + "px";
 
         rail.addEventListener("click", e => this.railClickHandler(e));
+        rail.addEventListener("touchstart", e => this.railTouchHandler(e));
 
         return rail;
     }
@@ -214,6 +216,9 @@ export default class RangeSlider {
         point.addEventListener("mouseout", e =>
             this.pointMouseOutHandler(e, index)
         );
+
+        point.addEventListener("touchstart", e => this.pointTouchStartHandler(e, index));
+        point.addEventListener("touchend", e => this.pointMouseOutHandler(e, index));
 
         return point;
     }
@@ -408,5 +413,58 @@ export default class RangeSlider {
         }
         this.changeHandlers.push(func);
         return this;
+    }
+
+    /**
+     * Handle touch start on points
+     * @param {TouchEvent} e
+     * @param {number} index
+     */
+    pointTouchStartHandler(e, index) {
+        e.preventDefault();
+        this.selectedPointIndex = index;
+        document.addEventListener("touchend", this.documentMouseupHandler);
+        document.addEventListener("touchmove", this.documentTouchMoveHandler);
+    }
+
+    /**
+     * Handle touch movement
+     * @param {TouchEvent} e
+     */
+    documentTouchMoveHandler(e) {
+        const touch = e.touches[0];
+        let newPosition = this.getMouseRelativePosition(touch.pageX);
+        let extra = Math.floor(newPosition % this.jump);
+
+        if (extra > this.jump / 2) {
+            newPosition += this.jump - extra;
+        } else {
+            newPosition -= extra;
+        }
+
+        if (newPosition < 0) {
+            newPosition = 0;
+        } else if (newPosition > this.container.offsetWidth) {
+            newPosition = this.container.offsetWidth;
+        }
+
+        this.pointPositions[this.selectedPointIndex] = newPosition;
+        this.allProps.values[this.selectedPointIndex] = this.possibleValues[
+            Math.floor(newPosition / this.jump)
+        ];
+        this.draw();
+    }
+
+    /**
+     * Handle touch events on rail
+     * @param {TouchEvent} e
+     */
+    railTouchHandler(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        let newPosition = this.getMouseRelativePosition(touch.pageX);
+        let closestPositionIndex = this.getClosestPointIndex(newPosition);
+        this.pointPositions[closestPositionIndex] = newPosition;
+        this.draw();
     }
 }
